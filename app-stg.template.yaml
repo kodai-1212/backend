@@ -1,0 +1,20 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: 'my-app-stg'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '1'
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      serviceAccountName: my-git@iot-main-428506.iam.gserviceaccount.com
+      containers:
+      - name: 'my-app'
+        image: 'app'
+        env:
+          - name: 'TARGET'
+            value: 'Stg'
+          - name: 'SHA'
+            value: '${SHA}'
