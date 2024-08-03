@@ -1,7 +1,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: 'my-app-prod'
+  name: '${APP}-prod'
 spec:
   template:
     metadata:
@@ -9,9 +9,9 @@ spec:
         autoscaling.knative.dev/maxScale: '1'
         run.googleapis.com/execution-environment: gen2
     spec:
-      serviceAccountName: my-git@iot-main-428506.iam.gserviceaccount.com
+      serviceAccountName: ${RUN_SERVICE_ACCOUNT}
       containers:
-      - name: 'my-app'
+      - name: '${APP}'
         image: 'app'
         env:
           - name: 'TARGET'
