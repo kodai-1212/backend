@@ -1,0 +1,6 @@
+streamlit
+spleeter
+pathlib
+typing
+click
+ffmpeg-python
