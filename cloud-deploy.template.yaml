@@ -1,0 +1,27 @@
+apiVersion: deploy.cloud.google.com/v1
+kind: DeliveryPipeline
+metadata:
+  name: 'my-app'
+description: 'Deployment pipeline for my-app'
+serialPipeline:
+  stages:
+    - targetId: 'stg'
+      profiles: ['stg']
+    - targetId: 'prod'
+      profiles: ['prod']
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: 'stg'
+description: 'Staging target'
+run:
+  location: 'projects/iot-main-428506/locations/asia-northeast1'
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: 'prod'
+description: 'Production target'
+run:
+  location: 'projects/iot-main-428506/locations/asia-northeast1'
