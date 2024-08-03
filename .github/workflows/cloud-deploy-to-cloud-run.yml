@@ -1,0 +1,71 @@
+name: Cloud Deploy to Cloud Run
+
+on: 
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v4'
+
+      - name: 'Google auth'
+        id: 'auth'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+          service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          project_id: '${{ secrets.GCP_PROJECT_ID }}'
+
+      - name: 'Docker auth'
+        run: |-
+          gcloud auth configure-docker ${{ vars.GAR_LOCATION }}-docker.pkg.dev
+
+      - name: 'Build and push container'
+        run: |-
+          docker build -t "${{ vars.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ vars.APP }}/${{ vars.APP }}:${{ github.sha }}" .
+          docker push "${{ vars.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ vars.APP }}/${{ vars.APP }}:${{ github.sha }}"
+
+      - name: 'Render templatised config manifests'
+        run: |-
+          export PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+          export REGION="${{ vars.GAR_LOCATION }}"
+          export APP="${{ vars.APP }}"
+          export SHA="${GITHUB_SHA::7}"
+          export RUN_SERVICE_ACCOUNT="${{ secrets.RUN_SERVICE_ACCOUNT }}"
+          for template in $(ls *.template.yaml); do envsubst < ${template} > ${template%%.*}.yaml ; done
+
+      - name: 'Create Cloud Deploy delivery pipeline'
+        run: |-
+          gcloud deploy apply --file cloud-deploy.yaml --region ${{ vars.GAR_LOCATION }}
+
+      - name: 'Create release name'
+        run: |-
+          echo "RELEASE_NAME=${{ vars.APP }}-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> ${GITHUB_ENV}
+
+      - name: 'Create Cloud Deploy release'
+        id: 'release'
+        uses: 'google-github-actions/create-cloud-deploy-release@v0'
+        with:
+          delivery_pipeline: '${{ vars.APP }}'
+          name: '${{ env.RELEASE_NAME }}'
+          region: '${{ vars.GAR_LOCATION }}'
+          description: '${{ env.GITHUB_COMMIT_MSG }}'
+          skaffold_file: 'skaffold.yaml'
+          images: 'app=${{ vars.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ vars.APP }}/${{ vars.APP }}:${{ github.sha }}'
+
+      - name: 'Report Cloud Deploy release'
+        run: |-
+          echo "Created release ${{ steps.release.outputs.name }} "
+          echo "Release link ${{ steps.release.outputs.link }} "
